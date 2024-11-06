@@ -54,19 +54,12 @@ def tfidf_analyze_subreddit(posts, max_terms=1000, min_doc_freq=2, include_selft
     """
     Analyze a single subreddit's posts independently.
     """
-     # Check if posts is indeed a DataFrame
-    if not isinstance(posts, pd.DataFrame):
-        raise ValueError("Input `posts` should be a pandas DataFrame.")
-
-    # Combine title and selftext (if specified)
-    texts = posts['title'].apply(preprocess_text)
-    if include_selftext:
-        # Add 'selftext' to each text if requested
-        texts += ' ' + posts['selftext'].apply(preprocess_text)
+    # Combine title and optionally selftext
+    texts = [
+        preprocess_text(post.get('title', '')) + (' ' + preprocess_text(post.get('selftext', '')) if include_selftext else '')
+        for post in posts
+    ]
     
-    # Convert texts to a list format for further analysis
-    texts = texts.tolist()
-
     # Analyze vocabulary first
     freq_df, vocab_stats = analyze_vocabulary(texts, min_freq=min_doc_freq)
     # Generate TF-IDF matrix and feature names
@@ -79,7 +72,7 @@ def tfidf_analyze_subreddit(posts, max_terms=1000, min_doc_freq=2, include_selft
         "freq_df":freq_df, 
         "vocab_stats":vocab_stats}
     
-    return results #tfidf_matrix, feature_names
+    return results
 
 
 def generate_tfidf_matrix(texts, max_terms=1000, min_doc_freq=2):
