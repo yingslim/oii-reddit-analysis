@@ -1,0 +1,13 @@
+pandas
+requests
+praw
+ipykernel
+numpy
+nltk
+textblob
+vaderSentiment
+scikit-learn
+Jinja2
+matplotlib
+pyarrow
+seaborn
