@@ -214,6 +214,65 @@ def plot_word_timeseries(df, terms, figsize=(12, 6), include_selftext=False):
     
     return fig, ax
 
+
+
+def plot_word_similarities_mds(tfidf_matrix, feature_names, n_terms=10, similarity_threshold=0.3, title=None):
+    """
+    Plot word similarities using MDS for a single TF-IDF matrix.
+    
+    Args:
+        tfidf_matrix: scipy sparse matrix from TF-IDF vectorization
+        feature_names: list of words corresponding to matrix columns
+        n_terms: number of top terms to plot
+        similarity_threshold: minimum similarity to draw connections
+    
+    Returns:
+        tuple: (fig, ax) matplotlib objects
+    """
+    # Get top n terms based on mean TF-IDF scores
+    mean_tfidf = tfidf_matrix.mean(axis=0).A1
+    top_indices = mean_tfidf.argsort()[-n_terms:][::-1]
+    
+    # Get vectors for top terms
+    term_vectors = tfidf_matrix.T[top_indices].toarray()
+    top_terms = feature_names[top_indices]
+    
+    # Calculate similarities and distances
+    similarities = cosine_similarity(term_vectors)
+    distances = 1 - similarities
+    
+    # Use MDS for 2D projection
+    mds = MDS(n_components=2, dissimilarity='precomputed', random_state=42)
+    coords = mds.fit_transform(distances)
+    
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.scatter(coords[:, 0], coords[:, 1])
+    
+    # Add word labels
+    for i, term in enumerate(top_terms):
+        ax.annotate(
+            term, 
+            (coords[i, 0], coords[i, 1]), 
+            fontsize=16,
+            bbox=dict(facecolor='white', edgecolor='gray', alpha=0.7),
+            ha='center', va='center')
+    
+    # Draw lines between similar terms
+    for i in range(len(top_terms)):
+        for j in range(i+1, len(top_terms)):
+            if similarities[i,j] > similarity_threshold:
+                ax.plot([coords[i,0], coords[j,0]], 
+                       [coords[i,1], coords[j,1]], 
+                       'gray', alpha=0.3)
+    if title: 
+        ax.set_title(f'Word Similarities in {title}')
+    else:
+        ax.set_title('Word Similarities')
+    plt.tight_layout()
+    return fig, ax
+
+
 def plot_word_similarities(tfidf_matrix, feature_names, n_terms=10, similarity_threshold=0.3, title=None):
     """
     Plot word similarities using MDS for a single TF-IDF matrix.
