@@ -12,7 +12,7 @@ data/taiwan_tfidf.csv
 utils/__pycache__/__init__.cpython-310.pyc
 utils/__pycache__/analysis.cpython-310.pyc
 utils/__pycache__/text_processor.cpython-310.pyc
-scrips
+scripts
 config/__pycache__/settings.cpython-312.pyc
 models/__pycache__/reddit_scraper.cpython-312.pyc
 models/__pycache__/__init__.cpython-312.pyc
