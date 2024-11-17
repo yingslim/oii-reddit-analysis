@@ -4,6 +4,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tag import pos_tag
+from nltk.util import ngrams
 import re
 import pandas as pd
 
@@ -29,7 +30,6 @@ def preprocess_text(text):
     
     # Remove stopwords
     stop_words = set(stopwords.words('english'))
-    stop_words.update(['china', 'taiwan', 'hongkong', 'hong','kong',  'chinese', 'taiwanese']) # remove unimportant words
     tokens = [token for token in tokens if token not in stop_words]
     
     # Lemmatize based on POS tag
@@ -43,6 +43,7 @@ def preprocess_text(text):
     
     # Remove short words
     tokens = [token for token in tokens if len(token) > 2]
+
     
     return ' '.join(tokens)
 

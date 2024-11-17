@@ -5,10 +5,13 @@ import pandas as pd
 import numpy as np
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
-from utils.text_processor import *
+from utils.text_processor import preprocess_text
 import matplotlib.pyplot as plt
+from sklearn.manifold import MDS
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.manifold import MDS, TSNE
+import numpy as np
+from sklearn.manifold import TSNE
+
 
 def analyze_vocabulary(texts, min_freq=2):
     """
@@ -54,19 +57,12 @@ def tfidf_analyze_subreddit(posts, max_terms=1000, min_doc_freq=2, include_selft
     """
     Analyze a single subreddit's posts independently.
     """
-     # Check if posts is indeed a DataFrame
-    if not isinstance(posts, pd.DataFrame):
-        raise ValueError("Input `posts` should be a pandas DataFrame.")
-
-    # Combine title and selftext (if specified)
-    texts = posts['title'].apply(preprocess_text)
-    if include_selftext:
-        # Add 'selftext' to each text if requested
-        texts += ' ' + posts['selftext'].apply(preprocess_text)
+    # Combine title and optionally selftext
+    texts = [
+        preprocess_text(post.get('title', '')) + (' ' + preprocess_text(post.get('selftext', '')) if include_selftext else '')
+        for post in posts
+    ]
     
-    # Convert texts to a list format for further analysis
-    texts = texts.tolist()
-
     # Analyze vocabulary first
     freq_df, vocab_stats = analyze_vocabulary(texts, min_freq=min_doc_freq)
     # Generate TF-IDF matrix and feature names
@@ -79,16 +75,16 @@ def tfidf_analyze_subreddit(posts, max_terms=1000, min_doc_freq=2, include_selft
         "freq_df":freq_df, 
         "vocab_stats":vocab_stats}
     
-    return results #tfidf_matrix, feature_names
+    return results
 
 
 def generate_tfidf_matrix(texts, max_terms=1000, min_doc_freq=2):
     """
     Generate TF-IDF matrix and feature names from texts.
     """
-
+    stop_words = list(set(stopwords.words('english')))
     vectorizer = TfidfVectorizer(
-        stop_words=stopwords.words('english'),
+        stop_words=stop_words,
         max_features=max_terms,
         min_df=min_doc_freq
     )
@@ -156,6 +152,7 @@ def get_top_terms(tfidf_results, n_terms=5):
         list: Top n terms
     """
     
+    
     if isinstance(tfidf_results, pd.DataFrame):
         tfidf_scores_sorted = tfidf_results.sort_values('score', ascending=False)
     elif isinstance(tfidf_results, (pd.Series, dict)):
@@ -217,6 +214,8 @@ def plot_word_timeseries(df, terms, figsize=(12, 6), include_selftext=False):
     
     return fig, ax
 
+
+
 def plot_word_similarities_mds(tfidf_matrix, feature_names, n_terms=10, similarity_threshold=0.3, title=None):
     """
     Plot word similarities using MDS for a single TF-IDF matrix.
@@ -256,6 +255,63 @@ def plot_word_similarities_mds(tfidf_matrix, feature_names, n_terms=10, similari
             term, 
             (coords[i, 0], coords[i, 1]), 
             fontsize=16,
+            bbox=dict(facecolor='white', edgecolor='gray', alpha=0.7),
+            ha='center', va='center')
+    
+    # Draw lines between similar terms
+    for i in range(len(top_terms)):
+        for j in range(i+1, len(top_terms)):
+            if similarities[i,j] > similarity_threshold:
+                ax.plot([coords[i,0], coords[j,0]], 
+                       [coords[i,1], coords[j,1]], 
+                       'gray', alpha=0.3)
+    if title: 
+        ax.set_title(f'Word Similarities in {title}')
+    else:
+        ax.set_title('Word Similarities')
+    plt.tight_layout()
+    return fig, ax
+
+
+def plot_word_similarities(tfidf_matrix, feature_names, n_terms=10, similarity_threshold=0.3, title=None):
+    """
+    Plot word similarities using MDS for a single TF-IDF matrix.
+    
+    Args:
+        tfidf_matrix: scipy sparse matrix from TF-IDF vectorization
+        feature_names: list of words corresponding to matrix columns
+        n_terms: number of top terms to plot
+        similarity_threshold: minimum similarity to draw connections
+    
+    Returns:
+        tuple: (fig, ax) matplotlib objects
+    """
+    # Get top n terms based on mean TF-IDF scores
+    mean_tfidf = tfidf_matrix.mean(axis=0).A1
+    top_indices = mean_tfidf.argsort()[-n_terms:][::-1]
+    
+    # Get vectors for top terms
+    term_vectors = tfidf_matrix.T[top_indices].toarray()
+    top_terms = feature_names[top_indices]
+    
+    # Calculate similarities and distances
+    similarities = cosine_similarity(term_vectors)
+    distances = 1 - similarities
+    
+    # Use MDS for 2D projection
+    mds = MDS(n_components=2, dissimilarity='precomputed', random_state=42)
+    coords = mds.fit_transform(distances)
+    
+    # Plot
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.scatter(coords[:, 0], coords[:, 1])
+    
+    # Add word labels
+    for i, term in enumerate(top_terms):
+        ax.annotate(
+            term, 
+            (coords[i, 0], coords[i, 1]), 
+            fontsize=12,
             bbox=dict(facecolor='white', edgecolor='gray', alpha=0.7),
             ha='center', va='center')
     
@@ -317,72 +373,3 @@ def plot_word_similarities_tsne(tfidf_matrix, feature_names, n_highlight=5, perp
     return fig, ax
 
 
-def plot_similarities(tfidf_matrix, labels, 
-                      title="term document plot", 
-                        method='tsne', is_documents=True, label_color=False,
-                      top_terms=None, figsize=(12, 8)):
-    """
-    Create projection visualization of document or term similarities
-    
-    Parameters:
-    - tfidf_matrix: scipy sparse matrix
-    - labels: list of labels (document texts or terms)
-    - title: plot title
-    - method: 'tsne' or 'mds' for dimensionality reduction
-    - top_terms: if int, only annotate top n terms
-    - is_documents: if True, plot documents, else plot terms
-    - figsize: tuple for figure size
-    """
-
-    # Convert to dense array and transpose if visualizing terms
-    matrix = tfidf_matrix.toarray()
-    if not is_documents:
-        matrix = matrix.T
-    
-    # Dimensionality reduction method
-    if method == 'tsne':
-        tsne = TSNE(n_components=2, 
-                    perplexity=min(30, len(labels)-1),
-                    random_state=42)
-        coords = tsne.fit_transform(matrix)
-    elif method == 'mds':
-        mds = MDS(n_components=2, dissimilarity='precomputed', random_state=42)
-        distances = 1 - cosine_similarity(matrix)
-        coords = mds.fit_transform(distances)
-    else:
-        raise ValueError("Method must be 'tsne' or 'mds'") 
-    
-    # Create visualization
-    fig, ax = plt.subplots(figsize=figsize)
-    scatter = ax.scatter(coords[:, 0], coords[:, 1], alpha=0.6)
-    
-    # Add labels
-    if top_terms and isinstance(top_terms, int):
-        mean_tfidf = tfidf_matrix.mean(axis=0).A1 if is_documents else tfidf_matrix.mean(axis=1).A1
-        top_indices = mean_tfidf.argsort()[-top_terms:][::-1]
-        labels_to_annotate = [labels[i] for i in top_indices]
-        coords_to_annotate = coords[top_indices]
-    else:
-        labels_to_annotate = labels
-        coords_to_annotate = coords
-
-    if label_color:
-        unique_labels = list(set(labels_to_annotate))
-        color_map = {label: color for label, color in zip(unique_labels, plt.cm.rainbow(np.linspace(0, 1, len(unique_labels))))}
-        colors = [color_map[label] for label in labels_to_annotate]
-    else:
-        colors = ['black'] * len(labels_to_annotate)
-    
-    for i, (label, color) in enumerate(zip(labels_to_annotate, colors)):
-        # Split long labels for documents
-        if is_documents:
-            label = split_label(label, 20)
-            
-        ax.annotate(label, (coords_to_annotate[i, 0], coords_to_annotate[i, 1]),
-                    xytext=(5, 5), textcoords='offset points',
-                    fontsize=8 if is_documents else 12, alpha=0.7, color=color)
-    
-    
-    ax.set_title(title)
-    ax.grid(True, linestyle='--', alpha=0.3)
-    return fig, ax
