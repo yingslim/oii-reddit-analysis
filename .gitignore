@@ -7,3 +7,5 @@ scripts/.cache/HongKong_5000.json
 scripts/config/__pycache__/settings.cpython-310.pyc
 scripts/models/__pycache__/reddit_scraper.cpython-310.pyc
 scripts/models/__pycache__/__init__.cpython-310.pyc
+
+scripts/utils/config.py
