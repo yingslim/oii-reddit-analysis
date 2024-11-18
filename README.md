@@ -20,3 +20,6 @@ Subreddits: r/China, r/Taiwan, r/HongKong<br/>
    - Gender bias?
    - Collective information creation reflected through the proliferated interlinks?
 4. Editor analysis, common editors updating both public figures' pages
+
+### Access network annotation file:
+**Figma file**: https://www.figma.com/design/YpBuDxS9aCAqR81iGHDVJZ/SDS_python_Reddit_CNTWHK?m=auto&t=WPz0XqqQWMMnzrbo-1
