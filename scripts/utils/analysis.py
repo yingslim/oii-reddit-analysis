@@ -193,7 +193,10 @@ def plot_word_timeseries(df, terms, figsize=(12, 6), include_selftext=False):
     # Count terms per day
     for date in dates:
         day_posts = df[df['date'] == date]
-        day_text = ' '.join(day_posts['title'] + ' ' + day_posts['selftext'])
+        if include_selftext:
+            day_text = ' '.join(day_posts['title'] + ' ' + day_posts['selftext'])
+        else:
+            day_text = ' '.join(day_posts['title'])
         words = preprocess_text(day_text).split()
         word_counts = Counter(words)
         
